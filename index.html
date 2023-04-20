@@ -30,9 +30,9 @@
           margin.left -
           margin.right -
           20,
-        height: document.documentElement.clientHeight * 0.4 - 20,
+        height: document.documentElement.clientHeight - 20,
       };
-      let curr_detail = "";
+      let curr_detail = {};
       let data = [];
       let x, y;
       let detail_size = 1;
@@ -51,33 +51,46 @@
         10,
         10
       );
-      let svg_bpm = define_svg(
-        "#bpm",
-        document.documentElement.clientWidth * 0.4 - 30,
-        document.documentElement.clientHeight * 0.2 - 30,
-        15,
-        15
-      );
-      let color_index = 0;
 
+      let color_index = 0;
+      // change these color to rgba form
+
+      // let color = {
+      //   piano: "#e60033",
+      //   organ: "#7b8d42",
+      //   "chromatic percussion": "#594c57",
+      //   bass: "#f08300",
+      //   guitar: "#f09199",
+      //   strings: "#9d5b8b",
+      //   ensemble: "#192f60",
+      //   brass: "#ffea00",
+      //   reed: "#38b48b",
+      //   pipe: "#2ca9e1",
+      //   drums: "#686a67",
+      // };
       let color = {
-        piano: "#e60033",
-        organ: "#7b8d42",
-        "chromatic percussion": "#594c57",
-        bass: "#f08300",
-        guitar: "#f09199",
-        strings: "#9d5b8b",
-        ensemble: "#192f60",
-        brass: "#ffea00",
-        reed: "#38b48b",
-        pipe: "#2ca9e1",
-        drums: "#686a67",
+        piano: "rgba(230,0,51,0.8)",
+        organ: "rgba(123,141,66,0.8)",
+        "chromatic percussion": "rgba(89,76,87,0.8)",
+        bass: "rgba(240,131,0,0.8)",
+        guitar: "rgba(240,145,153,0.8)",
+        strings: "rgba(157,91,139,0.8)",
+        ensemble: "rgba(25,47,96,0.8)",
+        brass: "rgba(255,234,0,0.8)",
+        reed: "rgba(56,180,139,0.8)",
+        pipe: "rgba(44,169,225,0.8)",
+        drums: "rgba(104,106,103,0.8)",
       };
       let max_velocity = 0,
         min_velocity = 1;
 
       read_csv();
-      load_data("Saint-Saens/Le Carnaval des Animaux (1886), 7. Aquarium.mid");
+      // let curr_detail = {};
+      curr_detail.author = "Mozart";
+      curr_detail.name = "Piano Concerto n20 K466 1mov.mid";
+      let midi = document.getElementById("midi-player");
+      midi.src = `./data/${curr_detail.author}/${curr_detail.name}`;
+      load_data(`${curr_detail.author}/${curr_detail.name}`);
       // Load a MIDI file
 
       async function read_csv() {
@@ -129,15 +142,17 @@
         //       min_velocity = Math.min(note.velocity, min_velocity);
         //     }
         // }
-
+        let i = 0;
         for (let index = 0; index < 20; index++) {
           if (data.tracks[index] == undefined) break;
           if (data.tracks[index].notes.length > 0) {
             renderMusicVis(
               data.tracks[index],
+              i,
               index,
               data.tracks[index].instrument
             );
+            i += 1;
           }
         }
       }
@@ -157,23 +172,63 @@
           .attr("transform", "translate(" + x + "," + y + ")");
         return svg;
       }
-
-      function renderMusicVis(data, index, instrument) {
-        console.log(data, data.notes, index);
-        let ddata = data.notes;
-        svg_detail
-          .selectAll("#Selector")
-          .data([ddata[0]])
-          .join("circle")
-          .attr("id", "Selector" + index)
-          .attr("transform", "translate(" + index * 45 + ",20)")
-          .transition()
-          .attr("cx", 0)
-          .attr("cy", 0)
-          .attr("r", 20)
-          .attr("fill", color[instrument.family]);
+      function getPolarCoordinate(value, angle) {
+        let x = value * Math.cos((angle * Math.PI) / 180);
+        let y = value * Math.sin((angle * Math.PI) / 180);
+        return [x, y];
       }
 
+      async function renderMusicVis(data, i, index, instrument) {
+        console.log(data, data.notes, index);
+        let ddata = data.notes;
+
+        for (let note of ddata) {
+          updateFrame(note, i, instrument);
+          await sleep(note.duration * 1000);
+
+          // svg_detail
+          //   .selectAll("#Selector" + index)
+          //   .transition()
+          //   .duration(10)
+          //   .attr("fill", changeOpecity(color[instrument.family], 0))
+          //   .attr("r", 5);
+        }
+      }
+      const sleep = (delay) =>
+        new Promise((resolve) => setTimeout(resolve, delay));
+      function updateFrame(note, index, instrument) {
+        let x = getPolarCoordinate(note.midi * 5, (360 / 14) * index)[0];
+        let y = getPolarCoordinate(note.midi * 5, (360 / 14) * index)[1];
+
+        svg_detail
+          .selectAll("#Selector" + index)
+          .data([note])
+          .attr("transform", "translate(" + 500 + ",500)")
+          .join("circle")
+          .transition()
+          .duration(note.duration * 1000)
+          .attr("id", "Selector" + index)
+          .attr("cx", x)
+          .attr("cy", y)
+          .attr("r", (d) => 50 * d.velocity)
+          .attr("fill", (d) =>
+            changeOpecity(color[instrument.family], d.velocity)
+          );
+      }
+      function changeOpecity(cssrgba, newOpecity) {
+        let rgba = cssrgba.split("(")[1].split(")")[0].split(",");
+        return (
+          "rgba(" +
+          rgba[0] +
+          "," +
+          rgba[1] +
+          "," +
+          rgba[2] +
+          "," +
+          newOpecity +
+          ")"
+        );
+      }
       /**
        * render the line graph for the whole music
        * @param [data] the data to be rendered
