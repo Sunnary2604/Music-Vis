@@ -2,7 +2,7 @@
   <head>
     <title>Music visualization</title>
     <script src="https://d3js.org/d3.v7.js"></script>
-    <script src="https://cdn.jsdelivr.net/combine/npm/tone@14.7.58,npm/@magenta/music@1.23.1/es6/core.js,npm/focus-visible@5,npm/html-midi-player@1.4.0"></script>
+    <script src="https://cdn.jsdelivr.net/combine/npm/tone@14.7.58,npm/@magenta/music@1.23.1/es6/core.js,npm/focus-visible@5,npm/html-midi-player@1.5.0"></script>
     <script src="https://unpkg.com/@tonejs/midi"></script>
   </head>
 
@@ -85,10 +85,13 @@
         min_velocity = 1;
 
       read_csv();
-      // let curr_detail = {};
-      curr_detail.author = "Mozart";
-      curr_detail.name = "Piano Concerto n20 K466 1mov.mid";
+      curr_detail.author = "Saint-Saens";
+      curr_detail.name = "Le Carnaval des Animaux (1886), 7. Aquarium.mid";
       let midi = document.getElementById("midi-player");
+      midi.addEventListener("start", () => {
+        renderAll(data);
+        // console.log("playing");
+      });
       midi.src = `./data/${curr_detail.author}/${curr_detail.name}`;
       load_data(`${curr_detail.author}/${curr_detail.name}`);
       // Load a MIDI file
@@ -142,19 +145,6 @@
         //       min_velocity = Math.min(note.velocity, min_velocity);
         //     }
         // }
-        let i = 0;
-        for (let index = 0; index < 20; index++) {
-          if (data.tracks[index] == undefined) break;
-          if (data.tracks[index].notes.length > 0) {
-            renderMusicVis(
-              data.tracks[index],
-              i,
-              index,
-              data.tracks[index].instrument
-            );
-            i += 1;
-          }
-        }
       }
 
       /**
@@ -177,7 +167,21 @@
         let y = value * Math.sin((angle * Math.PI) / 180);
         return [x, y];
       }
-
+      function renderAll(data) {
+        let i = 0;
+        for (let index = 0; index < 20; index++) {
+          if (data.tracks[index] == undefined) break;
+          if (data.tracks[index].notes.length > 0) {
+            renderMusicVis(
+              data.tracks[index],
+              i,
+              index,
+              data.tracks[index].instrument
+            );
+            i += 1;
+          }
+        }
+      }
       async function renderMusicVis(data, i, index, instrument) {
         console.log(data, data.notes, index);
         let ddata = data.notes;
@@ -197,8 +201,8 @@
       const sleep = (delay) =>
         new Promise((resolve) => setTimeout(resolve, delay));
       function updateFrame(note, index, instrument) {
-        let x = getPolarCoordinate(note.midi * 5, (360 / 14) * index)[0];
-        let y = getPolarCoordinate(note.midi * 5, (360 / 14) * index)[1];
+        let x = getPolarCoordinate(note.midi * 3, (360 / 14) * index)[0];
+        let y = getPolarCoordinate(note.midi * 3, (360 / 14) * index)[1];
 
         svg_detail
           .selectAll("#Selector" + index)
@@ -210,7 +214,7 @@
           .attr("id", "Selector" + index)
           .attr("cx", x)
           .attr("cy", y)
-          .attr("r", (d) => 50 * d.velocity)
+          .attr("r", (d) => 30 * d.velocity)
           .attr("fill", (d) =>
             changeOpecity(color[instrument.family], d.velocity)
           );
@@ -247,7 +251,6 @@
         var y = d3.scaleLinear().domain([0, 1]).range([0, 30]);
 
         let midi = d3.scaleLinear().domain([110, 10]).range([0, vp.height]);
-        console.log(min_velocity);
         min_velocity = Math.max(0.2, min_velocity);
         let opacity_scale = d3
           .scaleLinear()
