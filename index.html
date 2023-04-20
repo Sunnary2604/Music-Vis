@@ -1,0 +1,554 @@
+<html>
+  <head>
+    <title>Music visualization</title>
+    <script src="https://d3js.org/d3.v7.js"></script>
+    <script src="https://cdn.jsdelivr.net/combine/npm/tone@14.7.58,npm/@magenta/music@1.23.1/es6/core.js,npm/focus-visible@5,npm/html-midi-player@1.4.0"></script>
+    <script src="https://unpkg.com/@tonejs/midi"></script>
+  </head>
+
+  <body class="main">
+    <div
+      class="view"
+      id="detail"
+      style="height: 100vh; width: calc(100vw - 30px); overflow-x: scroll"
+    >
+      <midi-player
+        style="margin-top: 20px; margin-left: 200px"
+        id="midi-player"
+        sound-font
+        visualizer="#myVisualizer"
+      >
+      </midi-player>
+    </div>
+
+    <script>
+      // load a midi file in the browser
+      let margin = { top: 0, right: 40, bottom: 0, left: 0 };
+      let vp = {
+        width:
+          document.documentElement.clientWidth -
+          margin.left -
+          margin.right -
+          20,
+        height: document.documentElement.clientHeight * 0.4 - 20,
+      };
+      let curr_detail = "";
+      let data = [];
+      let x, y;
+      let detail_size = 1;
+      let music_index = 0;
+      let svg_detail = define_svg(
+        "#detail",
+        detail_size * vp.width,
+        vp.height + margin.top + margin.bottom,
+        margin.right,
+        0
+      );
+      let svg_overview = define_svg(
+        "#overview",
+        document.documentElement.clientWidth * 0.6 - 50,
+        document.documentElement.clientHeight * 0.6 - 30,
+        10,
+        10
+      );
+      let svg_bpm = define_svg(
+        "#bpm",
+        document.documentElement.clientWidth * 0.4 - 30,
+        document.documentElement.clientHeight * 0.2 - 30,
+        15,
+        15
+      );
+      let color_index = 0;
+
+      let color = {
+        piano: "#e60033",
+        organ: "#7b8d42",
+        "chromatic percussion": "#594c57",
+        bass: "#f08300",
+        guitar: "#f09199",
+        strings: "#9d5b8b",
+        ensemble: "#192f60",
+        brass: "#ffea00",
+        reed: "#38b48b",
+        pipe: "#2ca9e1",
+        drums: "#686a67",
+      };
+      let max_velocity = 0,
+        min_velocity = 1;
+
+      read_csv();
+      load_data("Saint-Saens/Le Carnaval des Animaux (1886), 7. Aquarium.mid");
+      // Load a MIDI file
+
+      async function read_csv() {
+        d3.json("./src/all_data.json").then((d) => {
+          render_glyph(d);
+        });
+      }
+      async function load_data(name) {
+        data = await Midi.fromUrl("./data/" + name);
+
+        //the file name decoded from the first track
+        // const name = midi.name;
+        // //get the tracks
+        // midi.tracks.forEach((track) => {
+        //   //tracks have notes and controlChanges
+        //   //notes are an array
+        //   const notes = track.notes;
+        //   notes.forEach((note) => {
+        //     //note.midi, note.time, note.duration, note.name
+        //   });
+
+        //   //the control changes are an object
+        //   //the keys are the CC number
+        //   track.controlChanges[64];
+        //   //they are also aliased to the CC number's common name (if it has one)
+        //   track.controlChanges.sustain.forEach((cc) => {
+        //     // cc.ticks, cc.value, cc.time
+        //   });
+
+        //   //the track also has a channel and instrument
+        //   //track.instrument.name
+        // }
+        // );
+        d3.selectAll("#detail").selectAll("svg").remove();
+        detail_size = data.duration / 30;
+        svg_detail = define_svg(
+          "#detail",
+          detail_size * vp.width,
+          vp.height + margin.top + margin.bottom,
+          margin.right,
+          0
+        );
+        // renderBPM(data.header.tempos, data.duration);
+        // for (let index = 0; index < 20; index++) {
+        //   if (data.tracks[index] == undefined) break;
+        //   if (data.tracks[index].notes.length > 0)
+        //     for (let note of data.tracks[index].notes) {
+        //       max_velocity = Math.max(note.velocity, max_velocity);
+        //       min_velocity = Math.min(note.velocity, min_velocity);
+        //     }
+        // }
+
+        for (let index = 0; index < 20; index++) {
+          if (data.tracks[index] == undefined) break;
+          if (data.tracks[index].notes.length > 0) {
+            renderMusicVis(
+              data.tracks[index],
+              index,
+              data.tracks[index].instrument
+            );
+          }
+        }
+      }
+
+      /**
+       * add a svg to the given place
+       * @param [selector] a string represent a class/id/tag
+       * @return the svg object
+       */
+      function define_svg(selector, w, h, x, y) {
+        let svg = d3
+          .select(selector)
+          .append("svg")
+          .attr("width", w)
+          .attr("height", h)
+          .append("g")
+          .attr("transform", "translate(" + x + "," + y + ")");
+        return svg;
+      }
+
+      function renderMusicVis(data, index, instrument) {
+        console.log(data, data.notes, index);
+        let ddata = data.notes;
+        svg_detail
+          .selectAll("#Selector")
+          .data([ddata[0]])
+          .join("circle")
+          .attr("id", "Selector" + index)
+          .attr("transform", "translate(" + index * 45 + ",20)")
+          .transition()
+          .attr("cx", 0)
+          .attr("cy", 0)
+          .attr("r", 20)
+          .attr("fill", color[instrument.family]);
+      }
+
+      /**
+       * render the line graph for the whole music
+       * @param [data] the data to be rendered
+       * @param [index] the index of the track
+       * @param [time] the total time of the music
+       * @param [instrument] the instrument of the track
+       */
+      function render(data, index, time, instrument) {
+        let ddata = data.notes;
+        let d;
+        var x = d3
+          .scaleLinear()
+          .domain([0, time + 0.5])
+          .range([0, vp.width * detail_size - 100]);
+
+        var y = d3.scaleLinear().domain([0, 1]).range([0, 30]);
+
+        let midi = d3.scaleLinear().domain([110, 10]).range([0, vp.height]);
+        console.log(min_velocity);
+        min_velocity = Math.max(0.2, min_velocity);
+        let opacity_scale = d3
+          .scaleLinear()
+          .domain([min_velocity, max_velocity])
+          .range([0.1, 0.9]);
+        let area = d3
+          .area()
+          .x(function (d) {
+            return x(d.time);
+          })
+          .y0(function (d) {
+            return midi(d.midi) + y(d.velocity) / 2;
+          })
+          .y1(function (d, i) {
+            let result;
+            if (i < ddata.length - 2) {
+              if (ddata[i + 1].time - d.time > 2)
+                result = midi(d.midi) + y(d.velocity) / 2;
+              else result = midi(d.midi) - y(d.velocity) / 2;
+            } else result = midi(d.midi) - y(d.velocity) / 2;
+            result = midi(d.midi) - y(d.velocity) / 2;
+            return result;
+          })
+          .curve(d3.curveBasis);
+        let start = 1,
+          end = 2;
+
+        let instrument_path;
+        for (let subindex = 1; subindex < ddata.length - 1; subindex += 1) {
+          if (ddata[end].time - ddata[start].time > ddata[start].duration) {
+            instrument_path = svg_detail
+              .selectAll("#Selector")
+              .data([ddata.slice(start - 1, end)])
+              .join("g");
+            instrument_path
+              .append("path")
+              .attr("id", "instrument_" + index)
+              .attr("fill", color[instrument.family])
+              .attr("opacity", (d) => opacity_scale(d[0].velocity))
+              .attr("d", (d) => area(d))
+              .on("mouseover", (e) => {
+                let p = e.path || (e.composedPath && e.composedPath()) || "";
+                svg_detail.selectAll("#" + p[0].id).attr("opacity", 1);
+                instrument_path
+                  .append("text")
+                  .text(data.name != "" ? data.name : instrument.name)
+                  .attr("x", e.offsetX + 20)
+                  .attr("y", e.offsetY - 20)
+                  .attr("fill", "#434343")
+                  .attr("font-size", "16px")
+                  .attr("z-index", 999)
+                  .attr("class", "instrument_name")
+                  .attr("font-weight", "800")
+                  .attr("text-anchor", "middle");
+              })
+              .on("mouseout", (e) => {
+                let p = e.path || (e.composedPath && e.composedPath()) || "";
+                instrument_path.selectAll(".instrument_name").remove();
+                svg_detail
+                  .selectAll("#" + p[0].id)
+                  .attr("opacity", (d) => opacity_scale(d[0].velocity));
+              });
+
+            start = subindex;
+            end = subindex + 1;
+          } else {
+            end += 1;
+            if (end == ddata.length - 1) {
+              instrument_path = svg_detail
+                .selectAll("#Selector")
+                .data([ddata.slice(start - 1, end)])
+                .join("g");
+              instrument_path
+                .append("path")
+                .attr("fill", color[instrument.family])
+                .attr("opacity", 0.7)
+                .attr("id", "instrument_" + index)
+                .attr("d", (d) => area(d))
+                .on("mouseover", (e) => {
+                  let p = e.path || (e.composedPath && e.composedPath()) || "";
+                  svg_detail.selectAll("#" + p[0].id).attr("opacity", 1);
+
+                  instrument_path
+                    .append("text")
+                    .text(data.name != "" ? data.name : instrument.name)
+                    .attr("x", e.offsetX + 20)
+                    .attr("y", e.offsetY - 20)
+                    .attr("fill", "#434343")
+                    .attr("class", "instrument_name")
+                    .attr("z-index", 999)
+                    .attr("font-size", "16px")
+                    .attr("font-weight", "800")
+                    .attr("text-anchor", "start");
+                })
+                .on("mouseout", (e) => {
+                  let p = e.path || (e.composedPath && e.composedPath()) || "";
+                  instrument_path.selectAll(".instrument_name").remove();
+                  svg_detail.selectAll("#" + p[0].id).attr("opacity", 0.7);
+                });
+            }
+          }
+          color_index += 1;
+        }
+        let axisY_detail = d3
+          .axisBottom(x)
+          .ticks(time / 10, "s")
+          .tickFormat(d3.format(".0f"));
+        instrument_path
+          .append("g")
+          .attr("class", "axisY")
+          .call(axisY_detail)
+          .attr("transform", `translate(0,${vp.height - 30})`)
+          .attr("color", "#434343");
+
+        // axisY_detail
+        //   .selectAll("g.tick")
+        //   .selectAll("line")
+
+        //   .attr("x1", -5)
+        //   .attr("x2", vp.width * detail_size - 100);
+      }
+      /**
+       * render the bpm line
+       * @param {Array} data - the data of bpm
+       * @param {Number} duration - the duration of the song
+       */
+      function renderBPM(data, duration) {
+        let scaleX = d3
+          .scaleLinear()
+          .domain([0, duration])
+          .range([0, document.documentElement.clientWidth * 0.4 - 50]);
+        let scaleY = d3
+          .scaleLinear()
+          .domain([380, 0])
+          .range([0, document.documentElement.clientHeight * 0.2 - 30]);
+        let line = d3
+          .line()
+          .x(function (d, i) {
+            return scaleX(d.time);
+          })
+          .y(function (d) {
+            return scaleY(d.bpm);
+          });
+        let axisY = d3.axisLeft(scaleY);
+        let axisYG = svg_bpm
+          .append("g")
+          .attr("class", "axisY")
+          .call(axisY)
+          .attr("transform", "translate(30,0)");
+        //绘制innerY
+        axisYG
+          .selectAll("g.tick")
+          .selectAll("line")
+
+          .attr("x1", -5)
+          .attr("x2", document.documentElement.clientWidth * 0.4 - 30)
+
+          .attr("stroke-dasharray", "5, 5");
+        svg_bpm
+          .selectAll("#selector")
+          .data([data])
+          .join("path")
+          .attr("transform", "translate(30,0)")
+          .style("fill", "none") //此处需要将处理是为了折线只显示线条
+          .style("stroke", "#775039")
+          .style("stroke-width", 3)
+          .attr("d", line);
+      }
+
+      /**
+       * render the bubble chart
+       * @param {Array} data - the data of glyph
+       */
+      async function render_glyph(data) {
+        let num = 28;
+        let margin = (document.documentElement.clientHeight * 0.6) / num;
+        let size_scale = d3
+          .scalePow()
+          .domain([0, 1226])
+          .range([margin * 0.1, margin * 0.5]);
+        let opacity_scale = d3.scaleLog().domain([40, 250]).range([0.1, 0.8]);
+
+        let data_copy = { children: [] };
+
+        for (let item in data) {
+          data_copy.children.push({ children: data[item] });
+        }
+
+        var root = d3
+          .hierarchy(data_copy)
+          .sum((d) => (d.hasOwnProperty("duration") ? d.duration : 0));
+
+        var partition = d3
+          .pack()
+          .size([
+            document.documentElement.clientWidth * 0.6,
+            document.documentElement.clientHeight * 0.6 - 60,
+          ])
+          .padding(1);
+
+        partition(root);
+
+        // packing layout
+        let dots = svg_overview
+          .selectAll("#selector")
+          .data(root.descendants())
+          .join("g");
+        let circles = dots
+          .append("circle")
+          .attr("r", (d) => d.r)
+          .attr("cx", (d, i) => d.x)
+          .attr("cy", (d, i) => d.y)
+          .attr("fill", (d) => {
+            if (d.data.scale == "major") return "#c12c1f";
+            else if (d.data.scale == "minor") return "#2e59a7";
+            else if (d.children != undefined) return "rgba(0,0,0,0)";
+            else return "grey";
+          })
+          .attr("stroke", (d, i) => (d.children != undefined ? "#dfceb4" : ""))
+          .attr("opacity", (d) => opacity_scale(d.data.bpm))
+          .attr("cursor", (d) => (d.children != undefined ? "" : "pointer"))
+          .on("click", (e) => {
+            console.log(e.path || (e.composedPath && e.composedPath()) || "");
+            let p = e.path || (e.composedPath && e.composedPath()) || "";
+            curr_detail = p[0].__data__.data;
+            if (curr_detail.children == undefined) {
+              svg_detail.selectAll("svg").remove();
+              svg_bpm.selectAll("path").remove();
+              color_index = 0;
+              max_velocity = 0;
+              min_velocity = 1;
+              load_data(curr_detail.author + "/" + curr_detail.name);
+              let midi = document.getElementById("midi-player");
+              let name = document.getElementById("name_text");
+              let composer = document.getElementById("composer_text");
+              let tone = document.getElementById("tone_text");
+              let bpm = document.getElementById("bpm_text");
+              midi.src = `./data/${curr_detail.author}/${curr_detail.name}`;
+              name.innerHTML = curr_detail.name.split(".mid")[0];
+              composer.innerHTML = curr_detail.author;
+              tone.innerHTML =
+                curr_detail.key ?? "" + ` (${curr_detail.scale})`;
+              bpm.innerHTML = Math.round(curr_detail.bpm);
+            }
+          });
+        let texts = dots
+          .append("text")
+          .text((d, i) => {
+            return d.children == undefined ? "" : d.children[0].data.author;
+          })
+          .attr("x", (d, i) => d.x)
+          .attr("y", (d, i) => d.y)
+          .attr("font-size", "12px")
+          .attr("font-weight", "600")
+          .attr("text-anchor", "middle");
+
+        for (let item of Object.keys(data)) {
+          let index = Object.keys(data).indexOf(item);
+
+          // // preprocessing
+          // for (let i in data[item]) {
+          //   let tmp = await Midi.fromUrl(
+          //     "../data/" + item + "/" + data[item][i].name
+          //   );
+          //   // console.log(tmp);
+          //   let bpm = 0;
+          //   for (let index in tmp.header.tempos) {
+          //     bpm += tmp.header.tempos[index].bpm;
+          //   }
+          //   bpm /= tmp.header.tempos.length;
+          //   // console.log(tmp.header.tempos);
+
+          //   if (tmp.header.keySignatures[0] != undefined) {
+          //     data[item][i].scale = tmp.header.keySignatures[0].scale;
+          //     data[item][i].key = tmp.header.keySignatures[0].key;
+          //   }
+          //   data[item][i].duration = tmp.duration;
+          //   // data[item][i].tempos = tmp.header.tempos;
+          //   data[item][i].bpm = bpm;
+          //   data[item][i].author=item
+          // }
+
+          // rank layout
+          // let dots = svg_overview
+          //   .selectAll("#selector")
+          //   .data(data[item])
+          //   .join("g");
+          // dots
+          //   .append("circle")
+          //   .attr("r", (d) => size_scale(d.duration))
+          //   .attr(
+          //     "cx",
+          //     (d, i) => ((music_index + i) % num) * margin + margin / 2
+          //   )
+          //   .attr(
+          //     "cy",
+          //     (d, i) =>
+          //       ((music_index + i - ((music_index + i) % num)) / num) * margin +
+          //       margin / 2
+          //   )
+          //   .attr("fill", (d) => {
+          //     if (d.scale == "major") return "#c12c1f";
+          //     else if (d.scale == "minor") return "#2e59a7";
+          //     else return "grey";
+          //   })
+          //   .attr("opacity", (d) => opacity_scale(d.bpm))
+          //   .on("click", (e) => {
+          //     curr_detail = e.path[0].__data__.name;
+          //     svg_detail.selectAll("path").remove();
+          //     color_index = 0;
+          //     load_data(item + "/" + curr_detail);
+          //   });
+          // dots
+          //   .append("text")
+          //   .text((d, i) => (i == 0 ? item : ""))
+          //   .attr(
+          //     "x",
+          //     (d, i) => ((music_index + i) % num) * margin + margin / 2 - 15
+          //   )
+          //   .attr(
+          //     "y",
+          //     (d, i) =>
+          //       ((music_index + i - ((music_index + i) % num)) / num) * margin +
+          //       margin / 2 -
+          //       15
+          //   )
+          //   .attr("text-ankcker");
+          music_index += data[item].length;
+        }
+        console.log(data);
+      }
+    </script>
+    <style>
+      .view {
+        border-radius: 17px;
+        box-shadow: 2px 2px 3px #beb1aa;
+        margin: 5px;
+        background-color: #f5f2e9;
+      }
+      .main {
+        background-color: #c7c6b6;
+      }
+      .title {
+        font-size: 22px;
+        font-weight: 800;
+        color: #434343;
+        margin: 10px 10px 10px 10px;
+        font-family: Verdana, Geneva, Tahoma, sans-serif;
+      }
+      .subtitle {
+        font-size: 20px;
+        font-weight: 500;
+        color: #bec2bc;
+        margin-left: 10px;
+        font-family: Verdana, Geneva, Tahoma, sans-serif;
+      }
+    </style>
+  </body>
+</html>
