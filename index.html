@@ -44,6 +44,8 @@
         margin.right,
         0
       );
+      // add this filter to the svg using innerHTML
+
       // let svg_overview = define_svg(
       //   "#overview",
       //   document.documentElement.clientWidth * 0.6 - 50,
@@ -85,7 +87,7 @@
       };
       let max_velocity = 0,
         min_velocity = 1;
-
+      let travelPath = [];
       let cases = [
         {
           author: "Saint-Saens",
@@ -97,8 +99,9 @@
         },
         { author: "Mozart", name: "Symphony n40 K550 4mov.mid" },
         { author: "Dvorak", name: "Dvorak Trio op26.mid" },
+        { author: "PACHABEL", name: "Pachelbel - Canon in D.mid", time: 8.43 },
       ];
-      let case_id = cases.length - 2;
+      let case_id = cases.length - 3;
       curr_detail = cases[case_id];
 
       let midi = document.getElementById("midi-player");
@@ -115,7 +118,7 @@
 
       async function load_data(name) {
         data = await Midi.fromUrl(name);
-
+        console.log(data);
         //the file name decoded from the first track
         // const name = midi.name;
         // //get the tracks
@@ -152,6 +155,7 @@
           if (data.tracks[index] == undefined) break;
           if (data.tracks[index].notes.length > 0) {
             track_num += 1;
+            travelPath.push([]);
             for (let note of data.tracks[index].notes) {
               max_velocity = Math.max(note.velocity, max_velocity);
               min_velocity = Math.min(note.velocity, min_velocity);
@@ -173,12 +177,28 @@
           .attr("height", h)
           .append("g")
           .attr("transform", "translate(" + x + "," + y + ")");
+        let filter_innerhtml = `<defs>
+        <filter id="filter" height="2" width="2">
+          <feTurbulence
+            baseFrequency="0.2"
+            numOctaves="3"
+            type="fractalNoise"
+          />
+          <feDisplacementMap
+            scale="30"
+            xChannelSelector="R"
+            in="SourceGraphic"
+          />
+        </filter>`;
+        document.getElementById("detail").children[1].children[0].innerHTML +=
+          filter_innerhtml;
         return svg;
       }
 
-      function getPolarCoordinate(value, angle) {
-        let offset = 150;
-        angle -= 180;
+      function getPolarCoordinate(value, angle, time) {
+        let offset = 100;
+        let speed = curr_detail.time == undefined ? 0: curr_detail.time;
+        angle -= 180 + time * speed;
         let x = (value + +offset) * Math.cos((angle * Math.PI) / 180);
         let y = (value + +offset) * Math.sin((angle * Math.PI) / 180);
 
@@ -224,7 +244,7 @@
           .attr(
             "transform",
             "translate(" +
-              document.documentElement.clientHeight * 0.7 +
+              document.documentElement.clientHeight * 0.555 +
               "," +
               0 +
               ")"
@@ -242,9 +262,9 @@
         //     .attr(
         //       "transform",
         //       "translate(" +
-        //         document.documentElement.clientHeight * 0.7 +
+        //         document.documentElement.clientHeight * 0.555 +
         //         "," +
-        //         document.documentElement.clientHeight * 0.7 +
+        //         document.documentElement.clientHeight * 0.555 +
         //         ")"
         //     );
         // }
@@ -263,11 +283,14 @@
           .range([0.2, 1]);
         let x = getPolarCoordinate(
           midiScale(note.midi),
-          (360 / (track_num - 1) / 2) * index
+          (360 / track_num) * index,
+          note.time
         )[0];
+        //    (360 / (track_num - 1) / 2) * index,
         let y = getPolarCoordinate(
           midiScale(note.midi),
-          (360 / (track_num - 1) / 2) * index
+          (360 / track_num) * index,
+          note.time
         )[1];
 
         // face
@@ -279,7 +302,7 @@
             "translate(" +
               document.documentElement.clientWidth * 0.5 +
               "," +
-              document.documentElement.clientHeight * 0.7 +
+              document.documentElement.clientHeight * 0.555 +
               ")"
           )
           .join("circle")
@@ -310,7 +333,7 @@
             "translate(" +
               document.documentElement.clientWidth * 0.5 +
               "," +
-              document.documentElement.clientHeight * 0.7 +
+              document.documentElement.clientHeight * 0.555 +
               ")"
           )
           .join("circle")
@@ -380,7 +403,7 @@
             },
           ];
         } else {
-          leftEye = [
+          rightEye = [
             {
               x: -15,
               y: 5,
@@ -394,8 +417,7 @@
               y: 15,
             },
           ];
-
-          rightEye = [
+          leftEye = [
             {
               x: 15,
               y: 5,
@@ -429,7 +451,7 @@
             "translate(" +
               document.documentElement.clientWidth * 0.5 +
               "," +
-              document.documentElement.clientHeight * 0.7 +
+              document.documentElement.clientHeight * 0.555 +
               ")"
           )
           .transition()
@@ -460,7 +482,7 @@
             "translate(" +
               document.documentElement.clientWidth * 0.5 +
               "," +
-              document.documentElement.clientHeight * 0.7 +
+              document.documentElement.clientHeight * 0.555 +
               ")"
           )
           .transition()
@@ -491,7 +513,7 @@
               "translate(" +
                 document.documentElement.clientWidth * 0.5 +
                 "," +
-                document.documentElement.clientHeight * 0.7 +
+                document.documentElement.clientHeight * 0.555 +
                 ")"
             )
             .join("circle")
@@ -531,9 +553,9 @@
         //   .attr(
         //     "transform",
         //     "translate(" +
-        //       document.documentElement.clientHeight * 0.7 +
+        //       document.documentElement.clientHeight * 0.555 +
         //       "," +
-        //       document.documentElement.clientHeight * 0.7 +
+        //       document.documentElement.clientHeight * 0.555 +
         //       ")"
         //   )
         //   .attr("x1", 0)
@@ -562,9 +584,45 @@
         // )
         // .attr("stroke-width", 0.5)
         // .attr("stroke-opacity", 0.2);
+
+        // render the path of the node travel using a smooth curve
+        let travel_path = d3
+          .line()
+          .x(function (d) {
+            return d.x;
+          })
+          .y(function (d) {
+            return d.y;
+          });
+        // .curve(d3.curveBasis);
+        travelPath[index].push({ x: x, y: y });
+        if (travelPath[index].length > 120) {
+          travelPath[index].shift();
+        }
+        if (curr_detail.time != undefined) {
+          svg_detail
+            .selectAll("#Selector_path" + index)
+            .data([travelPath[index]])
+            .join("path")
+            .attr("id", "Selector_path" + index)
+            .attr(
+              "transform",
+              "translate(" +
+                document.documentElement.clientWidth * 0.5 +
+                "," +
+                document.documentElement.clientHeight * 0.555 +
+                ")"
+            )
+            .transition()
+            .duration(note.duration * 1000)
+            .attr("d", travel_path)
+            .style("fill", "none")
+            .attr("stroke", changeOpecity(color[instrument.family], 0.3))
+            .attr("stroke-width", 5)
+            .style("filter", "url(#filter)");
+          ƒ;
+        }
       }
-      // two line represent the eyes
-      // one circle represent the mouth. The size of the circle is the velocity of the note
 
       function changeOpecity(cssrgba, newOpecity) {
         let rgba = cssrgba.split("(")[1].split(")")[0].split(",");
