@@ -78,7 +78,7 @@
         guitar: "rgba(240,145,153,0.8)",
         strings: "rgba(157,91,139,0.8)",
         ensemble: "rgba(25,47,96,0.8)",
-        brass: "rgba(255,234,0,0.8)",
+        brass: "rgba(240,131,0,0.8)",
         reed: "rgba(56,180,139,0.8)",
         pipe: "rgba(44,169,225,0.8)",
         drums: "rgba(104,106,103,0.8)",
@@ -98,7 +98,7 @@
         { author: "Mozart", name: "Symphony n40 K550 4mov.mid" },
         { author: "Dvorak", name: "Dvorak Trio op26.mid" },
       ];
-      let case_id = cases.length - 1;
+      let case_id = cases.length - 2;
       curr_detail = cases[case_id];
 
       let midi = document.getElementById("midi-player");
@@ -141,7 +141,6 @@
         // );
 
         d3.selectAll("#detail").selectAll("svg").remove();
-        // detail_size = data.duration / 30;
         svg_detail = define_svg(
           "#detail",
           vp.width,
@@ -149,7 +148,6 @@
           margin.right,
           0
         );
-        // renderBPM(data.header.tempos, data.duration);
         for (let index = 0; index < 20; index++) {
           if (data.tracks[index] == undefined) break;
           if (data.tracks[index].notes.length > 0) {
@@ -179,8 +177,8 @@
       }
 
       function getPolarCoordinate(value, angle) {
-        let offset = 100;
-        // angle -= 180;
+        let offset = 150;
+        angle -= 180;
         let x = (value + +offset) * Math.cos((angle * Math.PI) / 180);
         let y = (value + +offset) * Math.sin((angle * Math.PI) / 180);
 
@@ -226,7 +224,7 @@
           .attr(
             "transform",
             "translate(" +
-              document.documentElement.clientHeight * 0.5 +
+              document.documentElement.clientHeight * 0.7 +
               "," +
               0 +
               ")"
@@ -244,9 +242,9 @@
         //     .attr(
         //       "transform",
         //       "translate(" +
-        //         document.documentElement.clientHeight * 0.5 +
+        //         document.documentElement.clientHeight * 0.7 +
         //         "," +
-        //         document.documentElement.clientHeight * 0.5 +
+        //         document.documentElement.clientHeight * 0.7 +
         //         ")"
         //     );
         // }
@@ -254,7 +252,7 @@
 
       async function updateFrame(note, index, instrument) {
         await sleep(note.time * 1000);
-        let midiScale = d3.scaleLinear().domain([30, 127]).range([0, 300]);
+        let midiScale = d3.scaleLinear().domain([0, 127]).range([0, 400]);
         let velocityScale = d3
           .scaleLinear()
           .domain([min_velocity, max_velocity])
@@ -265,11 +263,11 @@
           .range([0.2, 1]);
         let x = getPolarCoordinate(
           midiScale(note.midi),
-          (360 / track_num) * index
+          (360 / (track_num - 1) / 2) * index
         )[0];
         let y = getPolarCoordinate(
           midiScale(note.midi),
-          (360 / track_num) * index
+          (360 / (track_num - 1) / 2) * index
         )[1];
 
         // face
@@ -279,9 +277,9 @@
           .attr(
             "transform",
             "translate(" +
-              document.documentElement.clientHeight * 0.5 +
+              document.documentElement.clientWidth * 0.5 +
               "," +
-              document.documentElement.clientHeight * 0.5 +
+              document.documentElement.clientHeight * 0.7 +
               ")"
           )
           .join("circle")
@@ -310,9 +308,9 @@
           .attr(
             "transform",
             "translate(" +
-              document.documentElement.clientHeight * 0.5 +
+              document.documentElement.clientWidth * 0.5 +
               "," +
-              document.documentElement.clientHeight * 0.5 +
+              document.documentElement.clientHeight * 0.7 +
               ")"
           )
           .join("circle")
@@ -335,7 +333,7 @@
 
         // add two horizontal lines as eyes
         let stages = [
-          min_velocity + (max_velocity - min_velocity) / 3,
+          min_velocity + (max_velocity - min_velocity) / 2,
           min_velocity + ((max_velocity - min_velocity) / 3) * 2,
         ];
         let leftEye, rightEye;
@@ -429,9 +427,9 @@
           .attr(
             "transform",
             "translate(" +
-              document.documentElement.clientHeight * 0.5 +
+              document.documentElement.clientWidth * 0.5 +
               "," +
-              document.documentElement.clientHeight * 0.5 +
+              document.documentElement.clientHeight * 0.7 +
               ")"
           )
           .transition()
@@ -460,9 +458,9 @@
           .attr(
             "transform",
             "translate(" +
-              document.documentElement.clientHeight * 0.5 +
+              document.documentElement.clientWidth * 0.5 +
               "," +
-              document.documentElement.clientHeight * 0.5 +
+              document.documentElement.clientHeight * 0.7 +
               ")"
           )
           .transition()
@@ -484,16 +482,16 @@
           .attr("stroke", 0);
 
         // add 3 layers of circle around the node
-        for (let layer = 0; layer < 3; layer++) {
+        for (let layer = 0; layer < 4; layer++) {
           svg_detail
             .selectAll("#Selector" + index + "_" + layer)
             .data([note])
             .attr(
               "transform",
               "translate(" +
-                document.documentElement.clientHeight * 0.5 +
+                document.documentElement.clientWidth * 0.5 +
                 "," +
-                document.documentElement.clientHeight * 0.5 +
+                document.documentElement.clientHeight * 0.7 +
                 ")"
             )
             .join("circle")
@@ -508,7 +506,7 @@
             .attr("stroke", (d) =>
               changeOpecity(
                 color[instrument.family],
-                opacityScale(d.velocity - 0.15 * layer)
+                opacityScale(d.velocity - (max_velocity / 4) * layer)
               )
             )
             .transition()
@@ -533,9 +531,9 @@
         //   .attr(
         //     "transform",
         //     "translate(" +
-        //       document.documentElement.clientHeight * 0.5 +
+        //       document.documentElement.clientHeight * 0.7 +
         //       "," +
-        //       document.documentElement.clientHeight * 0.5 +
+        //       document.documentElement.clientHeight * 0.7 +
         //       ")"
         //   )
         //   .attr("x1", 0)
