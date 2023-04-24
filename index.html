@@ -101,7 +101,7 @@
         { author: "Dvorak", name: "Dvorak Trio op26.mid" },
         { author: "PACHABEL", name: "Pachelbel - Canon in D.mid", time: 8.43 },
       ];
-      let case_id = cases.length - 3;
+      let case_id = cases.length - 1;
       curr_detail = cases[case_id];
 
       let midi = document.getElementById("midi-player");
@@ -272,7 +272,7 @@
 
       async function updateFrame(note, index, instrument) {
         await sleep(note.time * 1000);
-        let midiScale = d3.scaleLinear().domain([0, 127]).range([0, 400]);
+        let midiScale = d3.scaleLinear().domain([30, 100]).range([0, 400]);
         let velocityScale = d3
           .scaleLinear()
           .domain([min_velocity, max_velocity])
