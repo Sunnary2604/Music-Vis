@@ -196,7 +196,7 @@
       }
 
       function getPolarCoordinate(value, angle, time) {
-        let offset = 100;
+        let offset = 50;
         let speed = curr_detail.time == undefined ? 0: curr_detail.time;
         angle -= 180 + time * speed;
         let x = (value + +offset) * Math.cos((angle * Math.PI) / 180);
